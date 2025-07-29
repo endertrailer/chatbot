@@ -11,16 +11,16 @@ COPY client/package*.json ./client/
 # Install root dependencies
 RUN npm ci --only=production
 
-# Install client dependencies
-WORKDIR /app/client
-RUN npm ci
-
 # Copy all source code
-WORKDIR /app
 COPY . .
 
-# Build the client application
+# Install client dependencies and build
+WORKDIR /app/client
+RUN npm ci
 RUN npm run build
+
+# Go back to app root
+WORKDIR /app
 
 # Create uploads directory if needed
 RUN mkdir -p uploads
