@@ -4,35 +4,28 @@ FROM node:18.19.0-alpine3.18
 # Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy all package files first
 COPY package*.json ./
-
-# Install dependencies
-RUN npm ci --only=production
-
-# Copy client package files
 COPY client/package*.json ./client/
+
+# Install root dependencies
+RUN npm ci --only=production
 
 # Install client dependencies
 WORKDIR /app/client
-RUN npm ci --only=production
+RUN npm ci
 
-# Copy client source code
-COPY client/ ./
-
-# Build the React app
-RUN npm run build
-
-# Go back to app root
+# Copy all source code
 WORKDIR /app
-
-# Copy server source code
 COPY . .
+
+# Build the client application
+RUN npm run build
 
 # Create uploads directory if needed
 RUN mkdir -p uploads
 
-# Expose port
+# Expose port (Railway sets this dynamically)
 EXPOSE $PORT
 
 # Start the application
