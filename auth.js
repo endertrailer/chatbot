@@ -3,48 +3,49 @@ const jwt = require('jsonwebtoken');
 const db = require('./database');
 
 // Register new user
-const registerUser = (username, email, password) => {
-  return new Promise((resolve, reject) => {
+const registerUser = async (username, email, password) => {
+  try {
     const hashedPassword = bcrypt.hashSync(password, 10);
     
-    db.run(
-      'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
-      [username, email, hashedPassword],
-      function(err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve({ id: this.lastID, username, email });
-        }
-      }
+    const result = await db.query(
+      'INSERT INTO users (username, email, password) VALUES ($1, $2, $3) RETURNING id, username, email',
+      [username, email, hashedPassword]
     );
-  });
+    
+    return result.rows[0];
+  } catch (error) {
+    throw error;
+  }
 };
 
 // Login user
-const loginUser = (email, password) => {
-  return new Promise((resolve, reject) => {
-    db.get(
-      'SELECT * FROM users WHERE email = ?',
-      [email],
-      (err, user) => {
-        if (err) {
-          reject(err);
-        } else if (!user) {
-          reject(new Error('User not found'));
-        } else if (!bcrypt.compareSync(password, user.password)) {
-          reject(new Error('Invalid password'));
-        } else {
-          const token = jwt.sign(
-            { userId: user.id, username: user.username },
-            process.env.JWT_SECRET,
-            { expiresIn: '24h' }
-          );
-          resolve({ token, user: { id: user.id, username: user.username, email: user.email } });
-        }
-      }
+const loginUser = async (email, password) => {
+  try {
+    const result = await db.query(
+      'SELECT * FROM users WHERE email = $1',
+      [email]
     );
-  });
+    
+    const user = result.rows[0];
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    if (!bcrypt.compareSync(password, user.password)) {
+      throw new Error('Invalid password');
+    }
+    
+    const token = jwt.sign(
+      { userId: user.id, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    
+    return { token, user: { id: user.id, username: user.username, email: user.email } };
+  } catch (error) {
+    throw error;
+  }
 };
 
 // Middleware to verify JWT token
