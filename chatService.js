@@ -95,8 +95,26 @@ const saveMessage = (sessionId, message, sender) => {
 // Send message to chatbot API and get response
 const sendToChatbot = async (message) => {
   try {
-    if (process.env.AI_PROVIDER === 'google' && process.env.GOOGLE_API_KEY) {
-      // Use Google Gemini API with fallback models
+    // Primary: Use external chatbot API
+    try {
+      const response = await axios.post('https://r-chatbot.vercel.app/chatbot', {
+        message: message,
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000 // 10 second timeout
+      });
+      
+      if (response.data && response.data.success && response.data.response) {
+        return response.data.response;
+      }
+    } catch (apiError) {
+      console.log('External chatbot API failed, trying Google AI fallback...');
+    }
+    
+    // Fallback: Use Google Gemini API if available
+    if (process.env.GOOGLE_API_KEY) {
       const modelNames = [
         process.env.GOOGLE_MODEL || 'gemini-1.5-flash',
         'gemini-1.5-flash',
@@ -115,24 +133,13 @@ const sendToChatbot = async (message) => {
           continue;
         }
       }
-      
-      throw new Error('All Gemini models failed');
-    } else {
-      // Fallback to external API if configured
-      const response = await axios.post(process.env.CHATBOT_API_URL, {
-        message: message,
-      }, {
-        headers: {
-          'Authorization': `Bearer ${process.env.CHATBOT_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      return response.data.response || response.data.message || 'Sorry, I could not process your request.';
     }
+    
+    // If all else fails, return a helpful message
+    throw new Error('All AI services failed');
   } catch (error) {
     console.error('Chatbot API error:', error.message);
-    // Fallback response when API is not available
+    // Fallback response when all APIs are not available
     return `I'm a helpful AI assistant! I received your message: "${message}". However, I'm currently experiencing some technical difficulties with my AI service. Please try again in a moment, or feel free to ask me anything else!`;
   }
 };
